@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CycleGuard Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #040404;
+      --panel: #080808;
+      --surface: rgba(255,255,255,0.04);
+      --surface2: rgba(255,255,255,0.08);
+      --cyan: #00e5ff;
+      --cyan-dim: rgba(0,229,255,0.10);
+      --cyan-glow: rgba(0,229,255,0.4);
+      --red: #ff3d57;
+      --red-dim: rgba(255,61,87,0.12);
+      --orange: #ff8c00;
+      --green: #00e676;
+      --text: #e8eaf6;
+      --muted: #6b7db3;
+      --border: rgba(0,229,255,0.15);
+      --border2: rgba(255,255,255,0.06);
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+    /* ── HEADER ── */
+    header{flex-shrink:0;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+      border-bottom:1px solid var(--border2);background:rgba(8,8,16,0.9);backdrop-filter:blur(20px);z-index:50;}
+    .logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+    .logo-icon{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#ffffff,#888888);display:flex;align-items:center;justify-content:center;font-size:15px;}
+    .logo-text{font-family:'Outfit',sans-serif;font-weight:700;font-size:17px;color:var(--text);}
+    .logo-text span{color:var(--cyan);}
+    .header-center{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:50px;padding:4px;}
+    .mode-btn{padding:6px 20px;border-radius:50px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;transition:all .25s;color:var(--muted);background:transparent;}
+    .mode-btn.active{background:var(--cyan);color:#000;}
+    .header-right{display:flex;align-items:center;gap:12px;}
+    .status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:50px;background:var(--surface);border:1px solid var(--border2);font-size:12px;font-weight:600;}
+    .status-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+    .status-dot.green{background:var(--green);box-shadow:0 0 8px var(--green);}
+    .status-dot.cyan{background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink .8s infinite;}
+    .status-dot.red{background:var(--red);box-shadow:0 0 8px var(--red);}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+    a.back-link{color:var(--muted);text-decoration:none;font-size:13px;transition:color .2s;} a.back-link:hover{color:var(--text);}
+
+    /* ── MAIN LAYOUT ── */
+    .main{flex:1;display:grid;grid-template-columns:200px 1fr 280px;overflow:hidden;}
+
+    /* ── LEFT SIDEBAR ── */
+    .left-panel{background:var(--panel);border-right:1px solid var(--border2);padding:20px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
+    .panel-section{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:16px;}
+    .panel-label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;}
+    .control-hint{display:flex;align-items:center;gap:10px;padding:6px 0;}
+    .key-badge{display:flex;align-items:center;justify-content:center;min-width:28px;height:24px;border-radius:5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:var(--text);padding:0 6px;}
+    .hint-label{font-size:12px;color:var(--muted);}
+    .env-btns{display:flex;flex-direction:column;gap:6px;}
+    .env-btn{padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:13px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;text-align:left;}
+    .env-btn:hover{border-color:var(--border);color:var(--text);}
+    .env-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim);}
+
+    /* ── CENTER PANEL ── */
+    .center-panel{position:relative;display:flex;flex-direction:column;overflow:hidden;}
+    #sim-canvas{width:100%;height:100%;display:block;}
+    .sim-overlay{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+      background:rgba(8,8,16,0.8);backdrop-filter:blur(12px);border:1px solid var(--border2);
+      border-radius:12px;padding:8px 20px;font-size:13px;color:var(--muted);text-align:center;}
+    .sim-overlay.sim-crashed{border-color:rgba(255,255,255,0.3);color:var(--red);}
+
+    /* Hardware terminal */
+    .hw-panel{display:none;flex-direction:column;padding:24px;gap:16px;overflow:hidden;}
+    .hw-connect-area{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:20px;}
+    .hw-connect-icon{font-size:64px;opacity:.5;}
+    .hw-connect-title{font-family:'Outfit',sans-serif;font-size:24px;font-weight:700;color:var(--text);}
+    .hw-connect-sub{font-size:14px;color:var(--muted);text-align:center;max-width:360px;line-height:1.6;}
+    .btn-connect{padding:14px 36px;border-radius:12px;background:var(--cyan);border:none;color:#000;
+      font-weight:800;font-size:15px;font-family:'Inter',sans-serif;cursor:pointer;transition:all .25s;}
+    .btn-connect:hover{background:#eeeeee;box-shadow:0 0 30px var(--cyan-glow);transform:translateY(-2px);}
+    .btn-connect:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+    .btn-disconnect{padding:8px 18px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.4);
+      color:var(--red);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;}
+    .btn-disconnect:hover{background:rgba(255,255,255,0.1);}
+
+    /* Terminal */
+    .terminal-container{display:none;flex-direction:column;flex:1;min-height:0;}
+    .terminal-header{display:flex;align-items:center;justify-content:space-between;padding:0 0 10px;}
+    .terminal-title{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+    #serial-terminal{flex:1;overflow-y:auto;background:rgba(0,0,0,0.4);border:1px solid var(--border2);
+      border-radius:12px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;color:#b3b3b3;}
+    #serial-terminal .line-normal{color:#b3b3b3;}
+    #serial-terminal .line-crash{color:var(--red);font-weight:700;}
+
+    /* ── RIGHT SIDEBAR ── */
+    .right-panel{background:var(--panel);border-left:1px solid var(--border2);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+
+    /* Gauges */
+    .gauge-card{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;}
+    .gauge-wrap{position:relative;width:110px;height:110px;}
+    .gauge-wrap svg{transform:rotate(-90deg);}
+    .gauge-bg{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:9;}
+    .gauge-fill{fill:none;stroke-width:9;stroke-linecap:round;stroke-dasharray:283;stroke-dashoffset:283;transition:stroke-dashoffset .35s ease,stroke .35s ease;}
+    .gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .gauge-val{font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;color:var(--text);line-height:1;}
+    .gauge-unit{font-size:10px;color:var(--muted);margin-top:2px;}
+    .gauge-name{font-size:12px;font-weight:600;color:var(--muted);margin-top:10px;letter-spacing:.5px;}
+
+    /* Crash log */
+    .crash-log-card{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:14px;flex:1;display:flex;flex-direction:column;min-height:0;}
+    .crash-log-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    .crash-log-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+    .crash-count-badge{font-size:11px;font-weight:700;color:var(--red);background:var(--red-dim);border-radius:50px;padding:2px 8px;}
+    #crash-log-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+    .crash-empty{font-size:13px;color:rgba(136,136,136,0.5);text-align:center;margin-top:16px;}
+    .crash-entry{background:var(--red-dim);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 12px;}
+    .crash-entry-type{font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px;}
+    .crash-entry-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+    .crash-entry-data{font-size:11px;color:rgba(232,234,246,0.6);margin-top:3px;}
+
+    /* ── CRASH OVERLAY ── */
+    #crash-overlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+      background:rgba(255,255,255,0.10);animation:flashRed .35s ease;}
+    @keyframes flashRed{0%{background:rgba(255,255,255,0.25);}100%{background:rgba(255,255,255,0.10);}}
+    #crash-overlay.show{display:flex;}
+    .crash-modal{background:#070707;border:2px solid var(--red);border-radius:24px;padding:44px 48px;
+      max-width:480px;width:90%;text-align:center;box-shadow:0 0 80px rgba(255,255,255,0.2);animation:crashPop .4s cubic-bezier(.34,1.56,.64,1);}
+    @keyframes crashPop{from{transform:scale(.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+    .crash-modal-icon{font-size:72px;margin-bottom:16px;animation:shake .5s ease infinite;}
+    @keyframes shake{0%,100%{transform:rotate(0);}25%{transform:rotate(-5deg);}75%{transform:rotate(5deg);}}
+    .crash-modal h2{font-family:'Outfit',sans-serif;font-size:40px;font-weight:900;color:var(--red);letter-spacing:-1px;margin-bottom:8px;}
+    .crash-modal-reason{font-size:16px;color:var(--text);margin-bottom:20px;font-weight:500;}
+    .crash-modal-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;}
+    .crash-stat{background:rgba(255,255,255,0.04);border-radius:10px;padding:14px;}
+    .crash-stat-val{font-family:'Outfit',sans-serif;font-size:26px;font-weight:800;color:var(--text);}
+    .crash-stat-label{font-size:12px;color:var(--muted);margin-top:4px;}
+    .crash-stat-time{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);margin-bottom:24px;}
+    .btn-ack{padding:14px 40px;border-radius:12px;background:var(--red);border:none;color:#fff;
+      font-weight:800;font-size:15px;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;}
+    .btn-ack:hover{background:#bbbbbb;transform:translateY(-2px);}
+
+    /* Scrollbar */
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px;}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a href="index.html" class="logo" id="logo-link">
+    <div class="logo-icon">🛡️</div>
+    <span class="logo-text">Cycle<span>Guard</span></span>
+  </a>
+  <div class="header-center">
+    <button class="mode-btn active" id="btn-sim" onclick="setMode('sim')">🎮 Simulation</button>
+    <button class="mode-btn" id="btn-hw" onclick="setMode('hw')">🔌 Hardware</button>
+  </div>
+  <div class="header-right">
+    <div class="status-pill" id="status-pill">
+      <div class="status-dot green" id="status-dot"></div>
+      <span id="status-text">Simulation Active</span>
+    </div>
+    <a href="index.html" class="back-link" id="back-home-link">← Home</a>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="left-panel">
+    <!-- Sim controls -->
+    <div class="panel-section" id="sim-controls">
+      <div class="panel-label">Controls</div>
+      <div class="control-hint"><span class="key-badge">W</span><span class="hint-label">Accelerate</span></div>
+      <div class="control-hint"><span class="key-badge">S</span><span class="hint-label">Brake / Reverse</span></div>
+      <div class="control-hint"><span class="key-badge">A</span><span class="hint-label">Steer Left</span></div>
+      <div class="control-hint"><span class="key-badge">D</span><span class="hint-label">Steer Right</span></div>
+      <div class="control-hint"><span class="key-badge">←</span><span class="hint-label">Lean Left</span></div>
+      <div class="control-hint"><span class="key-badge">→</span><span class="hint-label">Lean Right</span></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">Hold ← / → past 72° to trigger a tilt crash!</p>
+    </div>
+    <!-- Environments -->
+    <div class="panel-section" id="env-section">
+      <div class="panel-label">Environment</div>
+      <div class="env-btns">
+        <button class="env-btn active" id="env-city" onclick="changeEnv('city',this)">🌃 City</button>
+        <button class="env-btn" id="env-mountain" onclick="changeEnv('mountain',this)">⛰️ Mountain</button>
+        <button class="env-btn" id="env-beach" onclick="changeEnv('beach',this)">🏖️ Beach</button>
+      </div>
+    </div>
+    <!-- Reset (shown after crash) -->
+    <div class="panel-section" id="reset-section" style="display:none;">
+      <div class="panel-label">Simulation</div>
+      <button onclick="doReset()" style="width:100%;padding:10px;border-radius:8px;background:var(--cyan);border:none;color:#000;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;">↺ Reset Bike</button>
+    </div>
+    <!-- Hardware info -->
+    <div class="panel-section" id="hw-info" style="display:none;">
+      <div class="panel-label">Hardware Info</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.6;">Baud: 115200<br>Parsing: Impact G &amp; Tilt Z<br>Chrome/Edge only</p>
+    </div>
+  </div>
+
+  <!-- CENTER: CANVAS or HW PANEL -->
+  <div class="center-panel" id="center-panel">
+    <!-- Simulation canvas -->
+    <canvas id="sim-canvas"></canvas>
+    <div class="sim-overlay" id="sim-hint">W/A/S/D to ride · ← → to lean · Hold past 72° to crash</div>
+
+    <!-- Hardware panel -->
+    <div class="hw-panel" id="hw-panel">
+      <!-- Connect screen -->
+      <div class="hw-connect-area" id="hw-connect-area">
+        <div class="hw-connect-icon">🔌</div>
+        <div class="hw-connect-title">Connect your ESP32</div>
+        <div class="hw-connect-sub">Plug your ESP32 via USB. Chrome/Edge will prompt you to select the COM port. CycleGuard will stream live crash data directly from the hardware.</div>
+        <button class="btn-connect" id="btn-connect" onclick="doConnect()">Connect to ESP32</button>
+        <p style="font-size:12px;color:rgba(136,136,136,0.6);">Requires Google Chrome or Microsoft Edge</p>
+      </div>
+      <!-- Terminal (shown after connect) -->
+      <div class="terminal-container" id="terminal-container">
+        <div class="terminal-header">
+          <span class="terminal-title">📡 Live Serial Feed</span>
+          <button class="btn-disconnect" id="btn-disconnect" onclick="doDisconnect()">Disconnect</button>
+        </div>
+        <div id="serial-terminal"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div class="right-panel">
+    <!-- Speed gauge -->
+    <div class="gauge-card">
+      <div class="gauge-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="gauge-bg" cx="55" cy="55" r="45"/>
+          <circle class="gauge-fill" id="gauge-speed-fill" stroke="#00e5ff" cx="55" cy="55" r="45"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val" id="gauge-speed-val">0</span>
+          <span class="gauge-unit">km/h</span>
+        </div>
+      </div>
+      <div class="gauge-name">Speed</div>
+    </div>
+    <!-- Lean gauge -->
+    <div class="gauge-card">
+      <div class="gauge-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="gauge-bg" cx="55" cy="55" r="45"/>
+          <circle class="gauge-fill" id="gauge-lean-fill" stroke="#ff8c00" cx="55" cy="55" r="45"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val" id="gauge-lean-val">0°</span>
+          <span class="gauge-unit">lean</span>
+        </div>
+      </div>
+      <div class="gauge-name">Tilt Angle</div>
+    </div>
+    <!-- G-Force gauge -->
+    <div class="gauge-card">
+      <div class="gauge-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="gauge-bg" cx="55" cy="55" r="45"/>
+          <circle class="gauge-fill" id="gauge-g-fill" stroke="#00e676" cx="55" cy="55" r="45"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val" id="gauge-g-val">0.0G</span>
+          <span class="gauge-unit">g-force</span>
+        </div>
+      </div>
+      <div class="gauge-name">Impact G</div>
+    </div>
+    <!-- Crash log -->
+    <div class="crash-log-card">
+      <div class="crash-log-header">
+        <span class="crash-log-title">Crash Log</span>
+        <span class="crash-count-badge" id="crash-count-badge">0</span>
+      </div>
+      <div id="crash-log-list">
+        <p class="crash-empty">No crashes detected yet</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CRASH OVERLAY -->
+<div id="crash-overlay">
+  <div class="crash-modal">
+    <div class="crash-modal-icon">🚨</div>
+    <h2>CRASH!</h2>
+    <div class="crash-modal-reason" id="crash-reason">Crash Detected</div>
+    <div class="crash-modal-stats">
+      <div class="crash-stat">
+        <div class="crash-stat-val" id="crash-stat-g">—</div>
+        <div class="crash-stat-label">Impact G</div>
+      </div>
+      <div class="crash-stat">
+        <div class="crash-stat-val" id="crash-stat-lean">—</div>
+        <div class="crash-stat-label">Lean Angle</div>
+      </div>
+    </div>
+    <div class="crash-stat-time" id="crash-stat-time"></div>
+    <br/>
+    <button class="btn-ack" id="btn-ack" onclick="acknowledgecrash()">Acknowledge</button>
+  </div>
+</div>
+
+<!-- THREE.JS CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- CycleGuard Scripts -->
+<script src="js/simulation.js"></script>
+<script src="js/hardware.js"></script>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────
+let currentMode = 'sim'; // 'sim' | 'hw'
+let simReady = false;
+let crashLog = [];
+let totalCrashes = 0;
+let pendingCrash = null;
+let crashAcked = true;
+
+// ── Init ──────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const canvas = document.getElementById('sim-canvas');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+
+  initSimulation(
+    canvas,
+    (speed, lean, g) => updateTelemetry(speed, lean, g),
+    (type, lean, g, ts) => fireCrash(type, lean, g, ts)
+  );
+  simReady = true;
+
+  initHardware(
+    (impactG, tiltZ) => updateHwTelemetry(impactG, tiltZ),
+    (type, impactG, tiltZ, ts) => fireCrash(type, tiltZ * 90, impactG, ts),
+    (s) => updateHwStatus(s),
+    (line) => appendTerminalLine(line, false)
+  );
+});
+
+// ── Mode Switching ────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  const btnSim = document.getElementById('btn-sim');
+  const btnHw  = document.getElementById('btn-hw');
+  const canvas = document.getElementById('sim-canvas');
+  const simHint = document.getElementById('sim-hint');
+  const hwPanel = document.getElementById('hw-panel');
+  const simCtrl = document.getElementById('sim-controls');
+  const envSec  = document.getElementById('env-section');
+  const hwInfo  = document.getElementById('hw-info');
+
+  if (mode === 'sim') {
+    btnSim.classList.add('active'); btnHw.classList.remove('active');
+    canvas.style.display = 'block'; simHint.style.display = 'block';
+    hwPanel.style.display = 'none';
+    simCtrl.style.display = 'block'; envSec.style.display = 'block'; hwInfo.style.display = 'none';
+    setStatus('dot-green', 'Simulation Active');
+    doDisconnect();
+  } else {
+    btnHw.classList.add('active'); btnSim.classList.remove('active');
+    canvas.style.display = 'none'; simHint.style.display = 'none';
+    hwPanel.style.display = 'flex'; hwPanel.style.flexDirection = 'column';
+    simCtrl.style.display = 'none'; envSec.style.display = 'none'; hwInfo.style.display = 'block';
+    setStatus('dot-grey', 'Not Connected');
+    stopSimulation();
+  }
+}
+
+// ── Status Pill ───────────────────────────────────────────────────────
+function setStatus(dotClass, text) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot';
+  if (dotClass === 'dot-green') dot.classList.add('green');
+  else if (dotClass === 'dot-cyan') dot.classList.add('cyan');
+  else if (dotClass === 'dot-red') dot.classList.add('red');
+  txt.textContent = text;
+}
+
+// ── Gauge Update ──────────────────────────────────────────────────────
+const CIRC = 283; // 2πr where r=45
+function setGauge(fillId, valId, value, max, unitSuffix, decimals) {
+  const fill = document.getElementById(fillId);
+  const val  = document.getElementById(valId);
+  const pct  = Math.min(Math.abs(value) / max, 1);
+  fill.style.strokeDashoffset = CIRC - pct * CIRC;
+  val.textContent = Math.abs(value).toFixed(decimals) + unitSuffix;
+  // Color shift when near danger
+  if (fillId === 'gauge-lean-fill') {
+    fill.style.stroke = pct > 0.75 ? '#cccccc' : pct > 0.55 ? '#aaaaaa' : '#aaaaaa';
+  }
+  if (fillId === 'gauge-g-fill') {
+    fill.style.stroke = value > 1.5 ? '#cccccc' : value > 1.0 ? '#aaaaaa' : '#dddddd';
+  }
+}
+
+function updateTelemetry(speed, lean, g) {
+  setGauge('gauge-speed-fill', 'gauge-speed-val', speed, 120, '', 0);
+  setGauge('gauge-lean-fill',  'gauge-lean-val',  lean,  90, '°', 0);
+  setGauge('gauge-g-fill',     'gauge-g-val',     g,     3,  'G', 1);
+}
+
+// ── Hardware Telemetry ────────────────────────────────────────────────
+function updateHwTelemetry(impactG, tiltZ) {
+  // Convert tiltZ to approximate lean angle (0→90, 1→0)
+  const leanApprox = (1 - Math.min(tiltZ, 1)) * 90;
+  setGauge('gauge-speed-fill', 'gauge-speed-val', 0, 120, '', 0);
+  setGauge('gauge-lean-fill',  'gauge-lean-val',  leanApprox, 90, '°', 0);
+  setGauge('gauge-g-fill',     'gauge-g-val',     impactG,   3,  'G', 2);
+}
+
+// ── Hardware Status ───────────────────────────────────────────────────
+function updateHwStatus(status) {
+  const connectArea   = document.getElementById('hw-connect-area');
+  const termContainer = document.getElementById('terminal-container');
+
+  if (status === 'connected') {
+    // Port opened — hide connect screen, show terminal
+    connectArea.style.display   = 'none';
+    termContainer.style.display = 'flex';
+    termContainer.style.flexDirection = 'column';
+    setStatus('dot-cyan', '⚡ ESP32 Connected');
+
+  } else if (status === 'reading') {
+    // Data is actively flowing
+    connectArea.style.display   = 'none';
+    termContainer.style.display = 'flex';
+    termContainer.style.flexDirection = 'column';
+    setStatus('dot-cyan', '📡 Reading Data');
+
+  } else if (status === 'disconnected') {
+    connectArea.style.display   = 'flex';
+    termContainer.style.display = 'none';
+    document.getElementById('serial-terminal').innerHTML = '';
+    setStatus('dot-grey', 'Not Connected');
+
+  } else if (status === 'crash') {
+    // Keep terminal visible, just update status pill
+    setStatus('dot-red', '🚨 CRASH DETECTED');
+  }
+}
+
+// ── Serial Terminal ───────────────────────────────────────────────────
+function appendTerminalLine(line, isCrash) {
+  const term = document.getElementById('serial-terminal');
+  const div = document.createElement('div');
+  div.className = isCrash ? 'line-crash' : 'line-normal';
+  const now = new Date();
+  const ts = `[${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}]`;
+  div.textContent = `${ts} ${line}`;
+  term.appendChild(div);
+  if (term.children.length > 200) term.removeChild(term.firstChild);
+  term.scrollTop = term.scrollHeight;
+}
+
+// ── Crash Logic ───────────────────────────────────────────────────────
+function fireCrash(type, lean, g, ts) {
+  if (!crashAcked) return; // already showing one
+  crashAcked = false;
+  totalCrashes++;
+
+  // Play sound
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 150, 300].forEach(offset => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'square';
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + offset/1000);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset/1000 + 0.2);
+      osc.start(ctx.currentTime + offset/1000);
+      osc.stop(ctx.currentTime + offset/1000 + 0.22);
+    });
+  } catch(e) {}
+
+  // Show overlay
+  document.getElementById('crash-reason').textContent = type;
+  document.getElementById('crash-stat-g').textContent = g.toFixed(2) + 'G';
+  document.getElementById('crash-stat-lean').textContent = Math.abs(lean).toFixed(1) + '°';
+  document.getElementById('crash-stat-time').textContent = ts.toLocaleTimeString();
+  document.getElementById('crash-overlay').classList.add('show');
+  setStatus('dot-red', '🚨 CRASH DETECTED');
+
+  // Add to log
+  addCrashLog(type, lean, g, ts);
+
+  // Hardware: add to terminal
+  if (currentMode === 'hw') appendTerminalLine('🚨 ' + type.toUpperCase(), true);
+
+  // Sim: show reset button
+  if (currentMode === 'sim') document.getElementById('reset-section').style.display = 'block';
+
+  pendingCrash = { type, lean, g, ts };
+}
+
+function acknowledgecrash() {
+  document.getElementById('crash-overlay').classList.remove('show');
+  crashAcked = true;
+  if (currentMode === 'hw') {
+    hwResetCrash();
+    setStatus('dot-cyan', 'Monitoring...');
+    appendTerminalLine('--- Crash acknowledged, monitoring resumed ---', false);
+  }
+}
+
+// ── Crash Log ─────────────────────────────────────────────────────────
+function addCrashLog(type, lean, g, ts) {
+  const list = document.getElementById('crash-log-list');
+  const empty = list.querySelector('.crash-empty');
+  if (empty) list.removeChild(empty);
+  const entry = document.createElement('div');
+  entry.className = 'crash-entry';
+  entry.innerHTML = `
+    <div class="crash-entry-type">🚨 ${type.split('—')[0].trim()}</div>
+    <div class="crash-entry-time">${ts.toLocaleTimeString()}</div>
+    <div class="crash-entry-data">${g.toFixed(2)}G · ${Math.abs(lean).toFixed(1)}° lean</div>`;
+  list.insertBefore(entry, list.firstChild);
+  document.getElementById('crash-count-badge').textContent = totalCrashes;
+  crashLog.push({ type, lean, g, ts });
+}
+
+// ── Environment ───────────────────────────────────────────────────────
+function changeEnv(mode, btn) {
+  document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (simReady) switchEnv(mode);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────
+function doReset() {
+  if (simReady) resetSimulation();
+  document.getElementById('reset-section').style.display = 'none';
+  document.getElementById('sim-hint').className = 'sim-overlay';
+  setStatus('dot-green', 'Simulation Active');
+  updateTelemetry(0, 0, 0);
+  crashAcked = true;
+}
+
+// ── Hardware Connect/Disconnect ───────────────────────────────────────
+async function doConnect() {
+  const btn = document.getElementById('btn-connect');
+  btn.disabled = true; btn.textContent = 'Connecting...';
+  const ok = await hwConnect();
+  btn.disabled = false; btn.textContent = 'Connect to ESP32';
+  if (ok) {
+    // hardware.js will call hwOnStatus('connected') then 'reading' automatically
+    appendTerminalLine('✅ Connected at 115200 baud. Streaming live data...', false);
+  }
+  // If !ok, hwConnect already called hwOnStatus('disconnected')
+}
+
+async function doDisconnect() {
+  await hwDisconnect();
+}
+</script>
+</body>
+</html>
